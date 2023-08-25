@@ -2,6 +2,7 @@
 pub enum TypeErrorKinsper {
     ConnectionError,
     MySqlError,
+    UpdateSchemeError,
 }
 
 #[derive(Debug)]

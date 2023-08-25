@@ -1,6 +1,10 @@
 use crate::{data::QUERY_LIMIT, errors::ErrorKinsper};
 
-use super::{context::Table, model::UserModel};
+use super::{
+    context::Table,
+    model::UserModel,
+    scheme::{CreateUserScheme, UpdateUserSchema},
+};
 
 impl<'c> Table<'c, UserModel> {
     pub async fn drop_table(&self) -> Result<(), ErrorKinsper> {
@@ -28,7 +32,7 @@ impl<'c> Table<'c, UserModel> {
         Ok(())
     }
 
-    pub async fn add_user(&self, user: &UserModel) -> Result<u64, ErrorKinsper> {
+    pub async fn add_user(&self, user: &CreateUserScheme) -> Result<u64, ErrorKinsper> {
         let result = sqlx::query(
             r#"
             INSERT INTO users (`id`, `name`, `mail`)
@@ -61,5 +65,47 @@ impl<'c> Table<'c, UserModel> {
 
         log::info!("Rows selected: {}.", result.len());
         Ok(result)
+    }
+
+    pub async fn get_user_by_id(&self, id: &str) -> Result<UserModel, ErrorKinsper> {
+        let result = sqlx::query_as::<_, UserModel>(
+            r#"
+                SELECT * 
+                FROM users 
+                WHERE id = ?"#,
+        )
+        .bind(id)
+        .fetch_one(&*self.pool)
+        .await?;
+
+        log::info!("User selected (ID-{}).", id);
+        Ok(result)
+    }
+
+    pub async fn update_user(
+        &self,
+        id: String,
+        user: UpdateUserSchema,
+    ) -> Result<u64, ErrorKinsper> {
+        let result = sqlx::query(
+            format!(
+                r#"
+                UPDATE users 
+                SET {} 
+                WHERE id = ?"#,
+                user.query_set()
+            )
+            .as_str(),
+        )
+        .bind(&id)
+        .execute(&*self.pool)
+        .await?;
+
+        log::info!(
+            "Rows affected: {}. User updated (ID-{}).",
+            result.rows_affected(),
+            id
+        );
+        Ok(result.rows_affected())
     }
 }
