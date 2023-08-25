@@ -84,5 +84,14 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         db_context.users.get_user_by_id("12333").await.unwrap()
     );
 
+    // // delete, and get all
+    // db_context.users.delete_user("12333").await.unwrap();
+    // println!(
+    //     "SELECTED ALL: {:?}", db_context.users.get_users(None).await.unwrap()
+    // );
+    // db_context.users.delete_user("23").await.unwrap();
+    // println!(
+    //     "SELECTED ALL: {:?}", db_context.users.get_users(None).await.unwrap()
+    // );
     Ok(())
 }

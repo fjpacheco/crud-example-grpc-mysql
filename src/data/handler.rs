@@ -108,4 +108,22 @@ impl<'c> Table<'c, UserModel> {
         );
         Ok(result.rows_affected())
     }
+
+    pub async fn delete_user(&self, id: &str) -> Result<u64, ErrorKinsper> {
+        let result = sqlx::query(
+            r#"
+            DELETE FROM users 
+            WHERE id = ?"#,
+        )
+        .bind(id)
+        .execute(&*self.pool)
+        .await?;
+
+        log::info!(
+            "Rows affected: {}. User deleted (ID-{}).",
+            result.rows_affected(),
+            id
+        );
+        Ok(result.rows_affected())
+    }
 }
