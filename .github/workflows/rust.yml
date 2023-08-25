@@ -26,7 +26,6 @@ jobs:
 
   build:
     name: Build & Test
-    needs: checks
     runs-on: ubuntu-latest
     services:
       mysql:
@@ -49,4 +48,4 @@ jobs:
     - name: Build
       run: cargo build --verbose
     - name: Run tests
-      run: cargo test --verbose
+      run: cargo test --verbose -- --test-threads=1

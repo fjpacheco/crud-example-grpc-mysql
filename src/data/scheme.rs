@@ -10,7 +10,7 @@ pub struct CreateUserScheme {
     pub mail: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct UpdateUserSchema {
     pub id: Option<String>,
     pub name: Option<String>,
