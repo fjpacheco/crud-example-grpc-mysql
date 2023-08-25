@@ -127,3 +127,54 @@ impl<'c> Table<'c, UserModel> {
         Ok(result.rows_affected())
     }
 }
+
+
+// tests
+
+#[cfg(test)]
+mod handler_tests {
+    use sqlx::{Pool, MySqlPool, pool::PoolConnection};
+    use dotenv::dotenv;
+
+    use crate::data::context::Database;
+
+    #[sqlx::test]
+    async fn test_get_user_inexistent() -> sqlx::Result<()> {
+        // CONTEXT TEST!
+        dotenv().ok();  
+        let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+        let db_context = Database::new(&database_url)
+            .await
+            .unwrap();
+        db_context.users.drop_table().await.unwrap();
+        db_context.users.create_table().await.unwrap();
+
+        let user_inserted = db_context.users.get_user_by_id("12").await;
+        assert!(user_inserted.is_err());
+        Ok(())
+    }
+
+    #[sqlx::test]
+    async fn test_add_user_and_get_ready() -> sqlx::Result<()> {
+        // CONTEXT TEST!
+        dotenv().ok();  
+        let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+        let db_context = Database::new(&database_url)
+            .await
+            .unwrap();
+        db_context.users.drop_table().await.unwrap();
+        db_context.users.create_table().await.unwrap();
+
+        db_context.users.add_user(&crate::data::scheme::CreateUserScheme {
+            id: "15".to_string(),
+            name: "Fede".to_string(),
+            mail: "fede@gmail.com".to_string()}).await.unwrap();
+
+        let user_inserted = db_context.users.get_user_by_id("15").await.unwrap();
+
+        assert_eq!(user_inserted.id, "15".to_string());
+        Ok(())
+    }
+
+
+}
