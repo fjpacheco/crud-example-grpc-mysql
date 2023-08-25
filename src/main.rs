@@ -20,6 +20,10 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     
     let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     let db_context = kinsper_rust_test::data::context::Database::new(&database_url).await.unwrap();
+    
+    db_context.users.drop_table().await.unwrap();
+    db_context.users.create_table().await.unwrap();
+
     let users = vec![
         UserModel {
             id: "12".to_string(),
