@@ -1,18 +1,18 @@
 #[derive(Debug)]
-pub enum TypeErrorKinsper{
+pub enum TypeErrorKinsper {
     ConnectionError,
     MySqlError,
 }
 
 #[derive(Debug)]
-pub struct ErrorKinsper{
+pub struct ErrorKinsper {
     pub type_error: TypeErrorKinsper,
     pub message: String,
 }
 
-impl ErrorKinsper{
+impl ErrorKinsper {
     pub fn new(type_error: TypeErrorKinsper, message: String) -> Self {
-        ErrorKinsper{
+        ErrorKinsper {
             type_error,
             message,
         }

@@ -17,10 +17,11 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         .format_timestamp(None)
         .init();
 
-    
     let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-    let db_context = kinsper_rust_test::data::context::Database::new(&database_url).await.unwrap();
-    
+    let db_context = kinsper_rust_test::data::context::Database::new(&database_url)
+        .await
+        .unwrap();
+
     db_context.users.drop_table().await.unwrap();
     db_context.users.create_table().await.unwrap();
 
@@ -41,7 +42,7 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         db_context.users.add_user(&user).await.unwrap();
     }
 
-    let selected_users =  db_context.users.get_users(None).await.unwrap();
+    let selected_users = db_context.users.get_users(None).await.unwrap();
 
     println!("selected_users: {:?}", selected_users);
 
