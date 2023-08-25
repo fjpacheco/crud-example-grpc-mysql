@@ -38,12 +38,7 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     ];
 
     for user in users {
-        sqlx::query(r"INSERT INTO users (id, name, mail) VALUES (?, ?, ?)")
-            .bind(user.id)
-            .bind(user.name)
-            .bind(user.mail)
-            .execute(&*db_context.users.pool)
-            .await?;
+        db_context.users.add_user(&user).await.unwrap();
     }
 
     let selected_users = sqlx::query_as!(UserModel, r#"SELECT * FROM users"#)

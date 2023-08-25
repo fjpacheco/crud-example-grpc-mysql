@@ -18,3 +18,12 @@ impl ErrorKinsper{
         }
     }
 }
+
+impl From<sqlx::Error> for ErrorKinsper {
+    fn from(err: sqlx::Error) -> Self {
+        ErrorKinsper::new(
+            TypeErrorKinsper::MySqlError,
+            format!("Error from MySql: {}", err),
+        )
+    }
+}

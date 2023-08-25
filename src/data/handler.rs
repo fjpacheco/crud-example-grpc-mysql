@@ -7,14 +7,9 @@ impl<'c> Table<'c, UserModel> {
     pub async fn drop_table(&self) -> Result<(), ErrorKinsper> {
         sqlx::query("DROP TABLE IF EXISTS users;")
             .execute(&*self.pool)
-            .await
-            .map_err(|err| {
-                ErrorKinsper::new(
-                    crate::errors::TypeErrorKinsper::MySqlError,
-                    format!("Couldn't drop the table: {}", err),
-                )
-            })?;
+            .await?;
 
+        log::info!("Table users dropped.");
         Ok(())
     }
 
@@ -28,15 +23,25 @@ impl<'c> Table<'c, UserModel> {
                 )"#,
             )
         .execute(&*self.pool)
-        .await
-        .map_err(|err| {
-            ErrorKinsper::new(
-                crate::errors::TypeErrorKinsper::MySqlError,
-                format!("Couldn't create the table: {}", err),
-            )
-        })?;
+        .await?;
 
+        log::info!("Table users created.");
         Ok(())
     }
 
+    pub async fn add_user(&self, user: &UserModel) -> Result<u64, ErrorKinsper> {
+        let result = sqlx::query(
+            r#"
+            INSERT INTO users (`id`, `name`, `mail`)
+            VALUES(?, ?, ?)"#,
+        )
+        .bind(&user.id)
+        .bind(&user.name)
+        .bind(&user.mail)
+        .execute(&*self.pool)
+        .await?;
+
+        log::info!("Rows affected: {}. New user added (ID-{}).", result.rows_affected(), user.id);
+        Ok(result.rows_affected())
+    }
 }
