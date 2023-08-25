@@ -20,7 +20,7 @@ jobs:
            image: mysql:latest
            env:
              MYSQL_ALLOW_EMPTY_PASSWORD: yes
-             MYSQL_DATABASE:  db_test_rust
+             MYSQL_DATABASE:  kinsper_rust_test
            ## map the "external" 33306 port with the "internal" 3306
            ports:
              - 6500:3306
@@ -39,7 +39,7 @@ jobs:
       run: cargo test --verbose
       env:
           DB_CONNECTION: mysql
-          DB_DATABASE: db_test_rust
+          DB_DATABASE: kinsper_rust_test
           DB_PORT: 6500
-          DB_USER: root
+          DB_USER: admin
   
