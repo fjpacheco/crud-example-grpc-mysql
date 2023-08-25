@@ -41,9 +41,7 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         db_context.users.add_user(&user).await.unwrap();
     }
 
-    let selected_users = sqlx::query_as!(UserModel, r#"SELECT * FROM users"#)
-        .fetch_all(&*db_context.users.pool)
-        .await?;
+    let selected_users =  db_context.users.get_users(None).await.unwrap();
 
     println!("selected_users: {:?}", selected_users);
 

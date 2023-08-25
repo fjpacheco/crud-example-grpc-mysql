@@ -1,4 +1,4 @@
-use crate::errors::ErrorKinsper;
+use crate::{errors::ErrorKinsper, data::QUERY_LIMIT};
 
 use super::{context::Table, model::UserModel};
 
@@ -44,4 +44,15 @@ impl<'c> Table<'c, UserModel> {
         log::info!("Rows affected: {}. New user added (ID-{}).", result.rows_affected(), user.id);
         Ok(result.rows_affected())
     }
+
+    pub async fn get_users(&self, limit: Option<u32>) -> Result<Vec<UserModel>, ErrorKinsper> {
+        let query = sqlx::query_as::<_, UserModel>(r#"SELECT * FROM users LIMIT ?"#)
+            .bind(limit.unwrap_or(QUERY_LIMIT));
+
+        let users = query.fetch_all(&*self.pool).await?;
+
+        log::info!("Rows selected: {}.", users.len());
+        Ok(users)
+    }
+
 }
