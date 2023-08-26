@@ -18,12 +18,12 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         .init();
 
     let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-    let db_context = kinsper_rust_test::data::context::Database::new(&database_url)
+    let db_context = kinsper_rust_test::data::context::Database::connect(&database_url)
         .await
         .unwrap();
 
-    db_context.users.drop_table().await.unwrap();
-    db_context.users.create_table().await.unwrap();
+    db_context.drop_table().await.unwrap();
+    db_context.create_table().await.unwrap();
 
     let users: Vec<CreateUserScheme> = vec![
         CreateUserScheme {
@@ -39,20 +39,19 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     ];
 
     for user in users {
-        db_context.users.add_user(&user).await.unwrap();
+        db_context.add_user(&user).await.unwrap();
     }
 
-    let selected_users = db_context.users.get_users(None).await.unwrap();
+    let selected_users = db_context.get_users(None).await.unwrap();
 
     println!("SELECTED ALL: {:?}", selected_users);
 
     println!(
         "Fede is in the database? {:?}",
-        db_context.users.get_user_by_id("12").await.unwrap()
+        db_context.get_user_by_id("12").await.unwrap()
     );
 
     db_context
-        .users
         .update_user(
             "12".to_string(),
             UpdateUserSchema::new(None, Some("Federico updated".to_string()), None).unwrap(),
@@ -62,11 +61,10 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 
     println!(
         "Fede Updated is in the database? {:?}",
-        db_context.users.get_user_by_id("12").await.unwrap()
+        db_context.get_user_by_id("12").await.unwrap()
     );
 
     db_context
-        .users
         .update_user(
             "12".to_string(),
             UpdateUserSchema::new(
@@ -81,17 +79,19 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 
     println!(
         "Fede Updated is in the database? {:?}",
-        db_context.users.get_user_by_id("12333").await.unwrap()
+        db_context.get_user_by_id("12333").await.unwrap()
     );
 
-    // // delete, and get all
-    // db_context.users.delete_user("12333").await.unwrap();
-    // println!(
-    //     "SELECTED ALL: {:?}", db_context.users.get_users(None).await.unwrap()
-    // );
-    // db_context.users.delete_user("23").await.unwrap();
-    // println!(
-    //     "SELECTED ALL: {:?}", db_context.users.get_users(None).await.unwrap()
-    // );
+    // delete, and get all
+    db_context.delete_user("12333").await.unwrap();
+    println!(
+        "SELECTED ALL: {:?}",
+        db_context.get_users(None).await.unwrap()
+    );
+    db_context.delete_user("23").await.unwrap();
+    println!(
+        "SELECTED ALL: {:?}",
+        db_context.get_users(None).await.unwrap()
+    );
     Ok(())
 }

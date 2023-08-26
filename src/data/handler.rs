@@ -1,12 +1,12 @@
 use crate::{data::QUERY_LIMIT, errors::ErrorKinsper};
 
 use super::{
-    context::Table,
+    context::Database,
     model::UserModel,
     scheme::{CreateUserScheme, UpdateUserSchema},
 };
 
-impl<'c> Table<'c, UserModel> {
+impl Database {
     pub async fn drop_table(&self) -> Result<(), ErrorKinsper> {
         sqlx::query("DROP TABLE IF EXISTS users;")
             .execute(&*self.pool)
@@ -152,18 +152,18 @@ mod handler_tests {
 
     const NUMBER_TESTS: usize = 5;
     static TEST_COUNTER: AtomicUsize = AtomicUsize::new(NUMBER_TESTS);
-    async fn setup() -> sqlx::Result<Arc<Database<'static>>> {
+    async fn setup() -> sqlx::Result<Arc<Database>> {
         dotenv().ok();
         let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-        let db_context = Arc::new(Database::new(&database_url).await.unwrap());
-        db_context.users.create_table().await.unwrap();
+        let db_context = Arc::new(Database::connect(&database_url).await.unwrap());
+        db_context.create_table().await.unwrap();
         Ok(db_context)
     }
 
-    async fn teardown(db_context: Arc<Database<'static>>) -> sqlx::Result<()> {
+    async fn teardown(db_context: Arc<Database>) -> sqlx::Result<()> {
         if TEST_COUNTER.fetch_sub(1, Ordering::SeqCst) == 1 {
             println!("Dropping table!");
-            db_context.users.drop_table().await.unwrap();
+            db_context.drop_table().await.unwrap();
         }
         Ok(())
     }
@@ -172,7 +172,7 @@ mod handler_tests {
     async fn when_get_user_by_id_given_inexistent_id_then_returns_error() -> sqlx::Result<()> {
         let db_context = setup().await?;
 
-        let user_inserted = db_context.users.get_user_by_id("12").await;
+        let user_inserted = db_context.get_user_by_id("12").await;
 
         assert!(user_inserted.is_err());
         teardown(db_context).await.unwrap();
@@ -187,9 +187,9 @@ mod handler_tests {
             name: "Fede".to_string(),
             mail: "fede@gmail.com".to_string(),
         };
-        db_context.users.add_user(&new_user).await.unwrap();
+        db_context.add_user(&new_user).await.unwrap();
 
-        let user_inserted = db_context.users.get_user_by_id("15").await.unwrap();
+        let user_inserted = db_context.get_user_by_id("15").await.unwrap();
 
         assert_eq!(user_inserted.id, "15".to_string());
         teardown(db_context).await.unwrap();
@@ -219,10 +219,10 @@ mod handler_tests {
         ];
 
         for user in new_users {
-            db_context.users.add_user(&user).await.unwrap();
+            db_context.add_user(&user).await.unwrap();
         }
 
-        let users = db_context.users.get_users(Some(2)).await.unwrap();
+        let users = db_context.get_users(Some(2)).await.unwrap();
 
         assert_eq!(users.len(), 2);
         teardown(db_context).await.unwrap();
@@ -239,7 +239,7 @@ mod handler_tests {
             name: "Jorge".to_string(),
             mail: "jorge@gmail.com".to_string(),
         };
-        db_context.users.add_user(&new_user).await.unwrap();
+        db_context.add_user(&new_user).await.unwrap();
 
         let updated_user = UpdateUserSchema::new(
             None,
@@ -249,12 +249,11 @@ mod handler_tests {
         .unwrap();
 
         db_context
-            .users
             .update_user("9494".to_string(), updated_user.clone())
             .await
             .unwrap();
 
-        let user_updated = db_context.users.get_user_by_id("9494").await.unwrap();
+        let user_updated = db_context.get_user_by_id("9494").await.unwrap();
 
         assert_eq!(user_updated.name, updated_user.name.unwrap());
         assert_eq!(user_updated.mail, updated_user.mail.unwrap());
@@ -272,11 +271,11 @@ mod handler_tests {
             name: "Luis".to_string(),
             mail: "luis@gmail.com".to_string(),
         };
-        db_context.users.add_user(&new_user).await.unwrap();
+        db_context.add_user(&new_user).await.unwrap();
 
-        db_context.users.delete_user("25").await.unwrap();
+        db_context.delete_user("25").await.unwrap();
 
-        let deleted_user = db_context.users.get_user_by_id("25").await;
+        let deleted_user = db_context.get_user_by_id("25").await;
 
         assert!(deleted_user.is_err());
         teardown(db_context).await.unwrap();
