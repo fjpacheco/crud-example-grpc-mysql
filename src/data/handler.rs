@@ -84,8 +84,8 @@ impl Database {
 
     pub async fn update_user(
         &self,
-        id: String,
-        user: UpdateUserSchema,
+        id: &str,
+        user: &UpdateUserSchema,
     ) -> Result<u64, ErrorKinsper> {
         let result = sqlx::query(
             format!(
@@ -97,7 +97,7 @@ impl Database {
             )
             .as_str(),
         )
-        .bind(&id)
+        .bind(id)
         .execute(&*self.pool)
         .await?;
 
@@ -241,17 +241,13 @@ mod handler_tests {
         };
         db_context.add_user(&new_user).await.unwrap();
 
-        let updated_user = UpdateUserSchema::new(
-            None,
-            Some("Jorge Updated".to_string()),
-            Some("jorge_updated@gmail.com".to_string()),
-        )
-        .unwrap();
-
-        db_context
-            .update_user("9494".to_string(), updated_user.clone())
-            .await
+        let updated_user = UpdateUserSchema::new()
+            .with_name("Jorge Updated".to_string())
+            .with_mail("jorge_updated@gmail.com".to_string())
+            .finalize()
             .unwrap();
+
+        db_context.update_user("9494", &updated_user).await.unwrap();
 
         let user_updated = db_context.get_user_by_id("9494").await.unwrap();
 
