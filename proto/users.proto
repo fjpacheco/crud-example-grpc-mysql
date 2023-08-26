@@ -2,22 +2,51 @@ syntax = "proto3";
 package user_service;
 
 service UserService {
-    rpc GetUser(UserRequest) returns (UserResponse);
-    rpc CreateUser(CreateUserRequest) returns (UserResponse);
+    rpc GetUser(GetUserRequest) returns (GetUserResponse);
+    rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
+    rpc UpdateNameUser(UpdateUserNameRequest) returns (UpdateUserNameResponse);
+    rpc UpdateMailUser(UpdateUserMailRequest) returns (UpdateUserMailResponse);
+    rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse);
+}
+
+message UserId {
+   string id = 1;
+}
+
+message GetUserRequest {
+   UserId id = 1;
+}
+
+message GetUserResponse {
+   UserId id = 1;
+   string name = 2;
+   string mail = 3;
 }
 
 message CreateUserRequest {
-   string id = 1;
+   UserId id = 1;
    string name = 2;
    string mail = 3;
 }
 
-message UserResponse {
-   string id = 1;
+message CreateUserResponse {}
+
+message UpdateUserNameRequest {
+   UserId id = 1;
    string name = 2;
-   string mail = 3;
 }
 
-message UserRequest {
-    string id = 1;
+message UpdateUserNameResponse {}
+
+message UpdateUserMailRequest {
+   UserId id = 1;
+   string mail = 2;
 }
+
+message UpdateUserMailResponse {}
+
+message DeleteUserRequest {
+   UserId id = 1;
+}
+
+message DeleteUserResponse {}

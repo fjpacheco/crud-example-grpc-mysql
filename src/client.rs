@@ -4,12 +4,12 @@ use dotenv::dotenv;
 use log::LevelFilter;
 use user_service::user_service_client::UserServiceClient;
 
-pub mod user_service {
-    use tonic::include_proto;
+use crate::user_service::UserId;
 
+pub mod user_service {
     // Note: The token passed to the include_proto macro (in our case "routeguide") is
     // the name of the package declared in our .proto file, not a filename, e.g "routeguide.rs".
-    include_proto!("user_service");
+    tonic::include_proto!("user_service");
 }
 
 #[tokio::main]
@@ -29,8 +29,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut client = UserServiceClient::connect("http://[::1]:50051").await?;
     log::info!("Connected to server.");
 
-    let mut request_get_user = tonic::Request::new(user_service::UserRequest {
-        id: "23".to_string(),
+    let mut request_get_user = tonic::Request::new(user_service::GetUserRequest {
+        id: Some(UserId {
+            id: "23".to_string(),
+        }),
     });
 
     log::info!("[GET_USER] [1] Sending request {:?}", request_get_user);
@@ -38,7 +40,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     log::info!("[GET_USER] [1] Response: {:?}", response);
 
     let request_create_user = tonic::Request::new(user_service::CreateUserRequest {
-        id: "23".to_string(),
+        id: Some(UserId {
+            id: "23".to_string(),
+        }),
         name: "John Doe".to_string(),
         mail: "jhon@test.com".to_string(),
     });
@@ -50,8 +54,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let response = client.create_user(request_create_user).await;
     log::info!("[CREATE_USER] [1] Response: {:?}", response);
 
-    request_get_user = tonic::Request::new(user_service::UserRequest {
-        id: "23".to_string(),
+    request_get_user = tonic::Request::new(user_service::GetUserRequest {
+        id: Some(UserId {
+            id: "23".to_string(),
+        }),
     });
 
     log::info!("[GET_USER] [2] Sending request {:?}", request_get_user);
