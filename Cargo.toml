@@ -15,6 +15,10 @@ path = "src/server.rs"
 name = "client"
 path = "src/client.rs"
 
+[[bin]]
+name = "multi-clients"
+path = "src/multi-clients.rs"
+
 [dependencies]
 log = "0.4"
 env_logger = "0.10.0"
@@ -30,6 +34,9 @@ tonic = "0.8"
 tonic-reflection = "0.6.0"
 prost = "0.11"
 rand = "0.8.4"
+clap = { version = "4.4.0", features = ["derive"] }
+
+
 
 [build-dependencies]
 tonic-build = "0.8"

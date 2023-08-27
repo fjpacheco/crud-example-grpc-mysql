@@ -1,87 +1,222 @@
-use dotenv::dotenv;
-use futures::stream::StreamExt;
-use kinsper_rust_test::{initialize_logging, MAX_USERS_TEST, SERVER_LOCALHOST, SERVER_LOCALPORT};
-use rand::Rng;
-use user_service::{user_service_client::UserServiceClient, GetAllUserRequest};
+use clap::Parser;
+use kinsper_rust_test::{SERVER_LOCALHOST, SERVER_LOCALPORT};
+use user_service::{
+    user_service_client::UserServiceClient, CreateUserRequest, DeleteUserRequest,
+    GetAllUserRequest, GetUserRequest, UpdateUserMailRequest, UpdateUserNameRequest,
+};
 
-use crate::user_service::UserId;
-
+use kinsper_rust_test::QUERY_LIMIT_CLIENT;
 pub mod user_service {
     // Note: The token passed to the include_proto macro (in our case "routeguide") is
     // the name of the package declared in our .proto file, not a filename, e.g "routeguide.rs".
     tonic::include_proto!("user_service");
 }
 
-// #[tokio::main] // by default, it uses 4 threads
-#[tokio::main(flavor = "multi_thread", worker_threads = 10)]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    dotenv().ok();
-    initialize_logging();
+#[derive(Debug, Parser)]
+struct Options {
+    #[clap(subcommand)]
+    command: Command,
+}
+
+#[derive(Debug, Parser)]
+enum Command {
+    Get(GetOptions),
+    GetAll(GetAllOptions),
+    Create(CreateOptions),
+    Delete(DeleteOptions),
+    UpdateName(UpdateNameOptions),
+    UpdateMail(UpdateMailOptions),
+}
+
+#[derive(Debug, Parser)]
+struct UpdateNameOptions {
+    #[clap(long)]
+    id: String,
+    #[clap(long)]
+    name: String,
+}
+
+async fn update_name(opts: UpdateNameOptions) -> Result<(), Box<dyn std::error::Error>> {
     let addr = format!("http://{}:{}", SERVER_LOCALHOST, SERVER_LOCALPORT);
-
-    let fetches = futures::stream::iter((0..MAX_USERS_TEST).map(|user_id| {
-        // let user_rng_id = 10_usize;
-        let user_rng_id = rand::thread_rng().gen_range(0..MAX_USERS_TEST);
-        let client = UserServiceClient::connect(addr.clone());
-
-        tokio::spawn(async move {
-            let request_get_user = tonic::Request::new(user_service::GetUserRequest {
-                id: Some(UserId {
-                    id: user_rng_id.to_string(),
-                }),
-            });
-
-            let request_create_user_1 = tonic::Request::new(user_service::CreateUserRequest {
-                id: Some(UserId {
-                    id: user_rng_id.to_string(),
-                }),
-                name: format!("John Doe A {}", user_rng_id),
-                mail: String::from("Jhon@mail.com"),
-            });
-
-            let request_create_user_2 = tonic::Request::new(user_service::CreateUserRequest {
-                id: Some(UserId {
-                    id: user_rng_id.to_string(),
-                }),
-                name: format!("John Doe B {}", user_rng_id),
-                mail: String::from("Jhon2@mail.com"),
-            });
-
-            let request_update_name_user =
-                tonic::Request::new(user_service::UpdateUserNameRequest {
-                    id: Some(UserId {
-                        id: user_rng_id.to_string(),
-                    }),
-                    name: format!("John Doe Updated by {}", user_id),
-                });
-
-            if let Ok(mut client) = client.await {
-                let _ = client.get_user(request_get_user).await;
-                let _ = client.create_user(request_create_user_1).await;
-                let _ = client.create_user(request_create_user_2).await;
-                let _ = client.update_name_user(request_update_name_user).await;
-            }
-
-            log::info!(
-                "END_REQ_ID_{}] | [CURRENT_THREAD: {:?}] | [THREAD_NAME: {:?}]",
-                user_id,
-                std::thread::current().id(),
-                std::thread::current().name().unwrap()
-            );
-        })
-    }));
-
-    fetches.buffer_unordered(5).collect::<Vec<_>>().await;
-
     let mut client = UserServiceClient::connect(addr).await?;
-    let mut stream = client
-        .get_all_users(GetAllUserRequest { limit: 100 })
-        .await?
-        .into_inner();
 
-    while let Some(user) = stream.message().await? {
-        println!("User = {:?}", user);
+    let request = tonic::Request::new(UpdateUserNameRequest {
+        id: Some(user_service::UserId { id: opts.id }),
+        name: opts.name,
+    });
+
+    let response = client.update_name_user(request).await;
+    match response {
+        Ok(_) => {
+            println!("User name updated successfully");
+        }
+        Err(e) => {
+            eprint!("USER NAME NOT UPDATED. ERROR: {:?}", e);
+        }
     }
+    Ok(())
+}
+
+#[derive(Debug, Parser)]
+struct UpdateMailOptions {
+    #[clap(long)]
+    id: String,
+    #[clap(long)]
+    mail: String,
+}
+
+async fn update_mail(opts: UpdateMailOptions) -> Result<(), Box<dyn std::error::Error>> {
+    let addr = format!("http://{}:{}", SERVER_LOCALHOST, SERVER_LOCALPORT);
+    let mut client = UserServiceClient::connect(addr).await?;
+
+    let request = tonic::Request::new(UpdateUserMailRequest {
+        id: Some(user_service::UserId { id: opts.id }),
+        mail: opts.mail,
+    });
+
+    let response = client.update_mail_user(request).await;
+    match response {
+        Ok(_) => {
+            println!("User mail updated successfully");
+        }
+        Err(e) => {
+            eprint!("USER MAIL NOT UPDATED. ERROR: {:?}", e);
+        }
+    }
+    Ok(())
+}
+
+#[derive(Debug, Parser)]
+struct DeleteOptions {
+    #[clap(long)]
+    id: String,
+}
+
+async fn delete(opts: DeleteOptions) -> Result<(), Box<dyn std::error::Error>> {
+    let addr = format!("http://{}:{}", SERVER_LOCALHOST, SERVER_LOCALPORT);
+    let mut client = UserServiceClient::connect(addr).await?;
+
+    let request = tonic::Request::new(DeleteUserRequest {
+        id: Some(user_service::UserId { id: opts.id }),
+    });
+
+    let response = client.delete_user(request).await;
+    match response {
+        Ok(_) => {
+            println!("User deleted successfully");
+        }
+        Err(e) => {
+            eprint!("USER NOT DELETED. ERROR: {:?}", e);
+        }
+    }
+    Ok(())
+}
+
+#[derive(Debug, Parser)]
+struct CreateOptions {
+    #[clap(long)]
+    id: String,
+    #[clap(long)]
+    name: String,
+    #[clap(long)]
+    mail: String,
+}
+
+async fn create(opts: CreateOptions) -> Result<(), Box<dyn std::error::Error>> {
+    let addr = format!("http://{}:{}", SERVER_LOCALHOST, SERVER_LOCALPORT);
+    let mut client = UserServiceClient::connect(addr).await?;
+
+    let request = tonic::Request::new(CreateUserRequest {
+        id: Some(user_service::UserId { id: opts.id }),
+        name: opts.name,
+        mail: opts.mail,
+    });
+
+    let response = client.create_user(request).await;
+    match response {
+        Ok(_) => {
+            println!("User created successfully");
+        }
+        Err(e) => {
+            eprint!("USER NOT CREATED. ERROR: {:?}", e);
+        }
+    }
+    Ok(())
+}
+
+#[derive(Debug, Parser)]
+struct GetAllOptions {
+    #[clap(default_value = QUERY_LIMIT_CLIENT, long)]
+    limit: u32,
+}
+
+async fn get_all(opts: GetAllOptions) -> Result<(), Box<dyn std::error::Error>> {
+    let addr = format!("http://{}:{}", SERVER_LOCALHOST, SERVER_LOCALPORT);
+    let mut client = UserServiceClient::connect(addr).await?;
+
+    let request = tonic::Request::new(GetAllUserRequest { limit: opts.limit });
+
+    let mut response = client.get_all_users(request).await?.into_inner();
+    while let Ok(user) = response.message().await {
+        if let Some(user) = user {
+            println!(
+                "User obtained - ID: {} | NAME: {} | MAIL: {}",
+                user.id.unwrap().id,
+                user.name,
+                user.mail
+            );
+        } else {
+            break;
+        }
+    }
+    Ok(())
+}
+
+#[derive(Debug, Parser)]
+struct GetOptions {
+    #[clap(long)]
+    id: String,
+}
+
+async fn get(opts: GetOptions) -> Result<(), Box<dyn std::error::Error>> {
+    let addr = format!("http://{}:{}", SERVER_LOCALHOST, SERVER_LOCALPORT);
+    let mut client = UserServiceClient::connect(addr).await?;
+
+    let request = tonic::Request::new(GetUserRequest {
+        id: Some(user_service::UserId { id: opts.id }),
+    });
+
+    let response = client.get_user(request).await;
+    match response {
+        Ok(response) => {
+            let response = response.into_inner();
+            println!(
+                "User obtained - ID: {} | NAME: {} | MAIL: {}",
+                response.id.unwrap().id,
+                response.name,
+                response.mail
+            );
+        }
+        Err(e) => {
+            eprint!("USER NOT FOUND. ERROR: {:?}", e);
+        }
+    }
+    Ok(())
+}
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let opts = Options::parse();
+
+    use Command::*;
+    match opts.command {
+        Get(opts) => get(opts).await?,
+        GetAll(opts) => get_all(opts).await?,
+        Create(opts) => create(opts).await?,
+        Delete(opts) => delete(opts).await?,
+        UpdateName(opts) => update_name(opts).await?,
+        UpdateMail(opts) => update_mail(opts).await?,
+    };
 
     Ok(())
 }
