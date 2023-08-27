@@ -3,6 +3,7 @@ package user_service;
 
 service UserService {
     rpc GetUser(GetUserRequest) returns (GetUserResponse);
+    rpc GetAllUsers(GetAllUserRequest) returns (stream GetUserResponse);
     rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
     rpc UpdateNameUser(UpdateUserNameRequest) returns (UpdateUserNameResponse);
     rpc UpdateMailUser(UpdateUserMailRequest) returns (UpdateUserMailResponse);
@@ -21,6 +22,10 @@ message GetUserResponse {
    UserId id = 1;
    string name = 2;
    string mail = 3;
+}
+
+message GetAllUserRequest {
+   uint32 limit = 1;
 }
 
 message CreateUserRequest {

@@ -2,7 +2,7 @@ use dotenv::dotenv;
 use futures::stream::StreamExt;
 use kinsper_rust_test::{initialize_logging, MAX_USERS_TEST, SERVER_LOCALHOST, SERVER_LOCALPORT};
 use rand::Rng;
-use user_service::user_service_client::UserServiceClient;
+use user_service::{user_service_client::UserServiceClient, GetAllUserRequest};
 
 use crate::user_service::UserId;
 
@@ -72,6 +72,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }));
 
     fetches.buffer_unordered(5).collect::<Vec<_>>().await;
+
+    let mut client = UserServiceClient::connect(addr).await?;
+    let mut stream = client
+        .get_all_users(GetAllUserRequest { limit: 100 })
+        .await?
+        .into_inner();
+
+    while let Some(user) = stream.message().await? {
+        println!("User = {:?}", user);
+    }
 
     Ok(())
 }

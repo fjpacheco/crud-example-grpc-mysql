@@ -2,14 +2,18 @@ use dotenv::dotenv;
 use kinsper_rust_test::data::context::Database;
 use kinsper_rust_test::data::scheme::{CreateUserScheme, UpdateUserSchema};
 use kinsper_rust_test::errors::ErrorKinsper;
-use kinsper_rust_test::{initialize_logging, SERVER_LOCALHOST, SERVER_LOCALPORT};
+use kinsper_rust_test::{
+    initialize_logging, LIMIT_STREAM_QUEUE, SERVER_LOCALHOST, SERVER_LOCALPORT,
+};
+use tokio::sync::mpsc;
+use tokio_stream::wrappers::ReceiverStream;
 use tonic::{transport::Server, Request, Response, Status};
 
 use user_service::user_service_server::{UserService, UserServiceServer};
 use user_service::{
-    CreateUserRequest, CreateUserResponse, DeleteUserRequest, DeleteUserResponse, GetUserRequest,
-    GetUserResponse, UpdateUserMailRequest, UpdateUserMailResponse, UpdateUserNameRequest,
-    UpdateUserNameResponse, UserId,
+    CreateUserRequest, CreateUserResponse, DeleteUserRequest, DeleteUserResponse,
+    GetAllUserRequest, GetUserRequest, GetUserResponse, UpdateUserMailRequest,
+    UpdateUserMailResponse, UpdateUserNameRequest, UpdateUserNameResponse, UserId,
 };
 
 pub mod user_service {
@@ -69,6 +73,45 @@ impl UserService for MyUserService {
                 mail: user.mail,
             })),
             Err(_) => Err(Status::not_found("User not found")),
+        }
+    }
+
+    type GetAllUsersStream = ReceiverStream<Result<GetUserResponse, Status>>;
+
+    async fn get_all_users(
+        &self,
+        request: Request<GetAllUserRequest>,
+    ) -> Result<Response<Self::GetAllUsersStream>, Status> {
+        log::info!("[GET_USERS] Got a request from {:?}", request.remote_addr());
+
+        let (tx, rx) = mpsc::channel(LIMIT_STREAM_QUEUE);
+
+        match self
+            .db_context
+            .get_users(Some(request.get_ref().limit))
+            .await
+        {
+            Ok(users) => {
+                tokio::spawn(async move {
+                    for user in users {
+                        if tx
+                            .send(Ok(GetUserResponse {
+                                id: Some(UserId { id: user.id }),
+                                name: user.name,
+                                mail: user.mail,
+                            }))
+                            .await
+                            .is_err()
+                        {
+                            log::error!("Channel send error");
+                            break;
+                        }
+                    }
+                });
+
+                Ok(Response::new(ReceiverStream::new(rx)))
+            }
+            Err(_) => Err(Status::internal("Couldn't get users")),
         }
     }
 
