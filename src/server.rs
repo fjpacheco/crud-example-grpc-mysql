@@ -2,9 +2,7 @@ use dotenv::dotenv;
 use kinsper_rust_test::data::context::Database;
 use kinsper_rust_test::data::scheme::{CreateUserScheme, UpdateUserSchema};
 use kinsper_rust_test::errors::ErrorKinsper;
-use log::LevelFilter;
-use std::env;
-use std::sync::Arc;
+use kinsper_rust_test::{initialize_logging, SERVER_LOCALHOST, SERVER_LOCALPORT};
 use tonic::{transport::Server, Request, Response, Status};
 
 use user_service::user_service_server::{UserService, UserServiceServer};
@@ -19,20 +17,7 @@ pub mod user_service {
 }
 
 pub struct MyUserService {
-    // Similarly, it isn't a good idea to hold a traditional non-futures-aware lock
-    // across an .await, as it can cause the threadpool to lock up: one task could take
-    // out a lock, .await and yield to the executor, allowing another task to attempt to
-    // take the lock and cause a DEADLOCK. To avoid this, use the
-    // Mutex in futures::lock rather than the one from std::sync.
-    // REF: https://rust-lang.github.io/async-book/03_async_await/01_chapter.html?highlight=lock#awaiting-on-a-multithreaded-executor
-
-    // The primary use case for the async mutex is to provide shared mutable access to
-    // IO resources such as a database connection. If the value behind the mutex is just data,
-    // it’s usually appropriate to use a blocking mutex such as the one in the standard library
-    // or parking_lot.
-    // REF: https://docs.rs/tokio/latest/tokio/sync/struct.Mutex.html#:~:text=The%20primary%20use%20case%20for%20the%20async%20mutex%20is%20to%20provide%20shared%20mutable%20access%20to%20IO%20resources%20such%20as%20a%20database%20connection.%20If%20the%20value%20behind%20the%20mutex%20is%20just%20data%2C%20it%E2%80%99s%20usually%20appropriate%20to%20use%20a%20blocking%20mutex%20such%20as%20the%20one%20in%20the%20standard%20library%20or%20parking_lot.
-    // mock_users : Arc<tokio::sync::Mutex<HashMap<String, User>>>,
-    db_context: Arc<Database>,
+    db_context: Database,
 }
 
 impl MyUserService {
@@ -47,6 +32,10 @@ impl MyUserService {
     {
         let updated_schema =
             schema_creator().map_err(|_| Status::internal("Couldn't create update schema"))?;
+
+        // tokio::time::sleep(std::time::Duration::from_secs(5)).await; // For play with concurrency with quantitiy workers on tokio runtime and buffer_unordered
+        // std::thread::sleep(std::time::Duration::from_secs(5)); // For visualize ops blocking in runtime thread
+
         self.db_context
             .update_user(id, &updated_schema)
             .await
@@ -120,7 +109,7 @@ impl UserService for MyUserService {
 
         let name = req.name.clone();
         self.update_user_helper(
-            &id,
+            id,
             || UpdateUserSchema::new().with_name(name).finalize(),
             || UpdateUserNameResponse {},
         )
@@ -170,30 +159,24 @@ impl UserService for MyUserService {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenv().ok();
-    env_logger::builder()
-        .filter(
-            None,
-            env::var("RUST_LOG")
-                .unwrap_or_default()
-                .parse::<LevelFilter>()
-                .unwrap_or(LevelFilter::Info),
-        )
-        .format_timestamp(None)
-        .init();
+    initialize_logging();
 
-    let addr = "[::1]:50051".parse().unwrap();
+    let addr = format!("{}:{}", SERVER_LOCALHOST, SERVER_LOCALPORT)
+        .parse()
+        .map_err(|_| {
+            std::io::Error::new(std::io::ErrorKind::Other, "Couldn't parse server address")
+        })?;
 
-    let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    let database_url = std::env::var("DATABASE_URL")
+        .map_err(|_| std::io::Error::new(std::io::ErrorKind::Other, "DATABASE_URL not found"))?;
     let db_context = Database::connect(&database_url).await.unwrap();
 
-    let users = MyUserService {
-        db_context: Arc::new(db_context),
-    };
+    let user_service = MyUserService { db_context };
 
     log::info!("Listening on {}", addr);
 
     Server::builder()
-        .add_service(UserServiceServer::new(users))
+        .add_service(UserServiceServer::new(user_service))
         .serve(addr)
         .await?;
 

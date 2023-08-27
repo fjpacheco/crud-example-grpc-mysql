@@ -9,7 +9,7 @@ use super::{
 impl Database {
     pub async fn drop_table(&self) -> Result<(), ErrorKinsper> {
         sqlx::query("DROP TABLE IF EXISTS users;")
-            .execute(&*self.pool)
+            .execute(self.pool.clone().as_ref())
             .await?;
 
         log::info!("Table users dropped.");
@@ -25,7 +25,7 @@ impl Database {
                 mail VARCHAR(256) NOT NULL
                 )"#,
         )
-        .execute(&*self.pool)
+        .execute(self.pool.clone().as_ref())
         .await?;
 
         log::info!("Table users created.");
@@ -33,6 +33,12 @@ impl Database {
     }
 
     pub async fn add_user(&self, user: &CreateUserScheme) -> Result<u64, ErrorKinsper> {
+        log::debug!(
+            "[CURRENT_THREAD: {:?}] | [THREAD_NAME: {:?}]",
+            std::thread::current().id(),
+            std::thread::current().name().unwrap()
+        );
+
         let result = sqlx::query(
             r#"
             INSERT INTO users (`id`, `name`, `mail`)
@@ -41,7 +47,7 @@ impl Database {
         .bind(&user.id)
         .bind(&user.name)
         .bind(&user.mail)
-        .execute(&*self.pool)
+        .execute(self.pool.clone().as_ref())
         .await?;
 
         log::info!(
@@ -53,6 +59,11 @@ impl Database {
     }
 
     pub async fn get_users(&self, limit: Option<u32>) -> Result<Vec<UserModel>, ErrorKinsper> {
+        log::debug!(
+            "[CURRENT_THREAD: {:?}] | [THREAD_NAME: {:?}]",
+            std::thread::current().id(),
+            std::thread::current().name().unwrap()
+        );
         let result = sqlx::query_as::<_, UserModel>(
             r#"
                 SELECT * 
@@ -60,7 +71,7 @@ impl Database {
                 LIMIT ?"#,
         )
         .bind(limit.unwrap_or(QUERY_LIMIT))
-        .fetch_all(&*self.pool)
+        .fetch_all(self.pool.clone().as_ref())
         .await?;
 
         log::info!("Rows selected: {}.", result.len());
@@ -68,6 +79,11 @@ impl Database {
     }
 
     pub async fn get_user_by_id(&self, id: &str) -> Result<UserModel, ErrorKinsper> {
+        log::debug!(
+            "[CURRENT_THREAD: {:?}] | [THREAD_NAME: {:?}]",
+            std::thread::current().id(),
+            std::thread::current().name().unwrap()
+        );
         let result = sqlx::query_as::<_, UserModel>(
             r#"
                 SELECT * 
@@ -75,7 +91,7 @@ impl Database {
                 WHERE id = ?"#,
         )
         .bind(id)
-        .fetch_one(&*self.pool)
+        .fetch_one(self.pool.clone().as_ref())
         .await?;
 
         log::info!("User selected (ID-{}).", id);
@@ -87,6 +103,11 @@ impl Database {
         id: &str,
         user: &UpdateUserSchema,
     ) -> Result<u64, ErrorKinsper> {
+        log::debug!(
+            "[CURRENT_THREAD: {:?}] | [THREAD_NAME: {:?}]",
+            std::thread::current().id(),
+            std::thread::current().name().unwrap()
+        );
         let result = sqlx::query(
             format!(
                 r#"
@@ -98,7 +119,7 @@ impl Database {
             .as_str(),
         )
         .bind(id)
-        .execute(&*self.pool)
+        .execute(self.pool.clone().as_ref())
         .await?;
 
         log::info!(
@@ -110,13 +131,18 @@ impl Database {
     }
 
     pub async fn delete_user(&self, id: &str) -> Result<u64, ErrorKinsper> {
+        log::debug!(
+            "[CURRENT_THREAD: {:?}] | [THREAD_NAME: {:?}]",
+            std::thread::current().id(),
+            std::thread::current().name().unwrap()
+        );
         let result = sqlx::query(
             r#"
             DELETE FROM users 
             WHERE id = ?"#,
         )
         .bind(id)
-        .execute(&*self.pool)
+        .execute(self.pool.clone().as_ref())
         .await?;
 
         log::info!(
