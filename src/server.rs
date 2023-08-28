@@ -12,8 +12,9 @@ use tonic::{transport::Server, Request, Response, Status};
 use user_service::user_service_server::{UserService, UserServiceServer};
 use user_service::{
     CreateUserRequest, CreateUserResponse, DeleteUserRequest, DeleteUserResponse,
-    GetAllUserRequest, GetUserRequest, GetUserResponse, UpdateUserMailRequest,
-    UpdateUserMailResponse, UpdateUserNameRequest, UpdateUserNameResponse, UserId,
+    GetAllUserRequest, GetUserRequest, GetUserResponse, ResetUserTableRequest,
+    ResetUserTableResponse, UpdateUserMailRequest, UpdateUserMailResponse, UpdateUserNameRequest,
+    UpdateUserNameResponse, UserId,
 };
 
 pub mod user_service {
@@ -191,6 +192,22 @@ impl UserService for MyUserService {
             .await
             .map(|_| Response::new(DeleteUserResponse {}))?)
     }
+
+    async fn reset_user_table(
+        &self,
+        request: Request<ResetUserTableRequest>,
+    ) -> Result<Response<ResetUserTableResponse>, Status> {
+        log::info!(
+            "[RESET_USER_TABLE] Got a request from {:?}",
+            request.remote_addr()
+        );
+
+        Ok(self
+            .db_context
+            .reset_table()
+            .await
+            .map(|_| Response::new(ResetUserTableResponse {}))?)
+    }
 }
 
 #[tokio::main]
@@ -210,6 +227,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::io::Error::new(
             std::io::ErrorKind::Other,
             "Couldn't connect to database server",
+        )
+    })?;
+
+    db_context.create_table().await.map_err(|_| {
+        std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "Couldn't create table in database",
         )
     })?;
 

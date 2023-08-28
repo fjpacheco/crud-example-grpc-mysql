@@ -21,7 +21,6 @@ impl Database {
             .execute(self.pool.clone().as_ref())
             .await?;
 
-        log::info!("Table users dropped.");
         Ok(())
     }
 
@@ -39,7 +38,15 @@ impl Database {
         .execute(self.pool.clone().as_ref())
         .await?;
 
-        log::info!("Table users created.");
+        Ok(())
+    }
+
+    pub async fn reset_table(&self) -> Result<(), ErrorKinsper> {
+        self.debug_thread();
+
+        self.drop_table().await?;
+        self.create_table().await?;
+
         Ok(())
     }
 
@@ -98,7 +105,6 @@ impl Database {
         .fetch_one(self.pool.clone().as_ref())
         .await?;
 
-        log::info!("User selected (ID-{}).", id);
         Ok(result)
     }
 

@@ -8,6 +8,7 @@ service UserService {
     rpc UpdateNameUser(UpdateUserNameRequest) returns (UpdateUserNameResponse);
     rpc UpdateMailUser(UpdateUserMailRequest) returns (UpdateUserMailResponse);
     rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse);
+    rpc ResetUserTable(ResetUserTableRequest) returns (ResetUserTableResponse);
 }
 
 message UserId {
@@ -55,3 +56,6 @@ message DeleteUserRequest {
 }
 
 message DeleteUserResponse {}
+
+message ResetUserTableRequest {}
+message ResetUserTableResponse {}

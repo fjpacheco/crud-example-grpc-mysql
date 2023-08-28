@@ -2,7 +2,8 @@ use clap::Parser;
 use kinsper_rust_test::{SERVER_LOCALHOST, SERVER_LOCALPORT};
 use user_service::{
     user_service_client::UserServiceClient, CreateUserRequest, DeleteUserRequest,
-    GetAllUserRequest, GetUserRequest, UpdateUserMailRequest, UpdateUserNameRequest,
+    GetAllUserRequest, GetUserRequest, ResetUserTableRequest, UpdateUserMailRequest,
+    UpdateUserNameRequest,
 };
 
 use kinsper_rust_test::QUERY_LIMIT_CLIENT;
@@ -26,8 +27,26 @@ enum Command {
     Delete(DeleteOptions),
     UpdateName(UpdateNameOptions),
     UpdateMail(UpdateMailOptions),
+    ResetTable,
 }
 
+async fn reset_table() -> Result<(), Box<dyn std::error::Error>> {
+    let addr = format!("http://{}:{}", SERVER_LOCALHOST, SERVER_LOCALPORT);
+    let mut client = UserServiceClient::connect(addr).await?;
+
+    let request = tonic::Request::new(ResetUserTableRequest {});
+
+    let response = client.reset_user_table(request).await;
+    match response {
+        Ok(_) => {
+            println!("User table reset successfully");
+        }
+        Err(e) => {
+            eprint!("USER TABLE NOT RESET. ERROR: {:?}", e);
+        }
+    }
+    Ok(())
+}
 #[derive(Debug, Parser)]
 struct UpdateNameOptions {
     #[clap(long)]
@@ -228,6 +247,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Delete(opts) => delete(opts).await?,
         UpdateName(opts) => update_name(opts).await?,
         UpdateMail(opts) => update_mail(opts).await?,
+        ResetTable => reset_table().await?,
     };
 
     Ok(())
