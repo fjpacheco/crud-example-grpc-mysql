@@ -1,7 +1,7 @@
 use dotenv::dotenv;
 use kinsper_rust_test::data::context::Database;
 use kinsper_rust_test::data::scheme::{CreateUserScheme, UpdateUserSchema};
-use kinsper_rust_test::errors::{ErrorKinsper, TypeErrorKinsper};
+use kinsper_rust_test::errors::ErrorKinsper;
 use kinsper_rust_test::{
     initialize_logging, validate_mail, LIMIT_STREAM_QUEUE, SERVER_LOCALHOST, SERVER_LOCALPORT,
 };
@@ -49,9 +49,7 @@ impl MyUserService {
     fn id_to_str<'a>(&self, id: &'a Option<UserId>) -> Result<&'a str, Status> {
         match id {
             Some(id) => Ok(&id.id),
-            None => Err(Status::invalid_argument(
-                TypeErrorKinsper::InvalidId.to_string(),
-            )),
+            None => Err(ErrorKinsper::InvalidId("Invalid id".to_string()).into()),
         }
     }
 }

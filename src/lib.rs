@@ -2,7 +2,7 @@ pub mod data;
 pub mod errors;
 use std::env;
 
-use errors::TypeErrorKinsper;
+use errors::ErrorKinsper;
 use tonic::Status;
 
 const DEFAULT_LEVEL_LOG: log::LevelFilter = log::LevelFilter::Info;
@@ -29,10 +29,8 @@ pub fn validate_mail(mail: &str) -> Result<(), Status> {
     regex::Regex::new(
         r"^([a-z0-9_+]([a-z0-9_+.]*[a-z0-9_+])?)@([a-z0-9]+([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,6})",
     )
-    .map_err(|_| Status::internal(TypeErrorKinsper::InternalValidationError.to_string()))
-    .and_then(|re| {
-        re.is_match(mail)
-            .then_some(())
-            .ok_or_else(|| Status::invalid_argument(TypeErrorKinsper::InvalidEmail.to_string()))
-    })
+    .map_err(|_| ErrorKinsper::InternalValidationError("Error in validations.".to_string()))?
+    .is_match(mail)
+    .then_some(())
+    .ok_or_else(|| ErrorKinsper::InvalidEmail("Invalid email.".to_string()).into())
 }

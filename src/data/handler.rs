@@ -58,8 +58,7 @@ impl Database {
         .await?;
 
         match result.rows_affected() {
-            0 => Err(ErrorKinsper::new(
-                crate::errors::TypeErrorKinsper::AlreadyExists,
+            0 => Err(ErrorKinsper::AlreadyExists(
                 "User already exists.".to_string(),
             )),
             _ => Ok(result.rows_affected()),
@@ -80,10 +79,7 @@ impl Database {
         .await?;
 
         if result.is_empty() {
-            Err(ErrorKinsper::new(
-                crate::errors::TypeErrorKinsper::NotFound,
-                "No users found.".to_string(),
-            ))
+            Err(ErrorKinsper::NotFound("No users found.".to_string()))
         } else {
             Ok(result)
         }
@@ -128,10 +124,7 @@ impl Database {
         .await?;
 
         match result.rows_affected() {
-            0 => Err(ErrorKinsper::new(
-                crate::errors::TypeErrorKinsper::NotFound,
-                "User not found.".to_string(),
-            )),
+            0 => Err(ErrorKinsper::NotFound("User not found.".to_string())),
             _ => Ok(result.rows_affected()),
         }
     }
@@ -149,10 +142,7 @@ impl Database {
         .await?;
 
         match result.rows_affected() {
-            0 => Err(ErrorKinsper::new(
-                crate::errors::TypeErrorKinsper::NotFound,
-                "User not found.".to_string(),
-            )),
+            0 => Err(ErrorKinsper::NotFound("User not found.".to_string())),
             _ => Ok(result.rows_affected()),
         }
     }

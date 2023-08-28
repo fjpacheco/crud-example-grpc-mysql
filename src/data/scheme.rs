@@ -63,8 +63,7 @@ impl UpdateUserSchema {
         .collect();
 
         if updates.is_empty() {
-            return Err(ErrorKinsper::new(
-                crate::errors::TypeErrorKinsper::UpdateSchemeError,
+            return Err(ErrorKinsper::UpdateSchemeError(
                 "No fields to update.".to_string(),
             ));
         }
