@@ -7,7 +7,7 @@ services:
     env_file:
       - ./.env
     ports:
-      - '6500:3306'
+      - '3306:3306'
     volumes:
       - mysqlDB:/var/lib/mysql
 

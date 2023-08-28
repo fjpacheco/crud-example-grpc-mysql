@@ -10,7 +10,7 @@ pub struct CreateUserScheme {
     pub mail: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct UpdateUserSchema {
     pub id: Option<String>,
     pub name: Option<String>,
@@ -19,42 +19,55 @@ pub struct UpdateUserSchema {
 }
 
 impl UpdateUserSchema {
-    pub fn new(
-        id: Option<String>,
-        name: Option<String>,
-        mail: Option<String>,
-    ) -> Result<UpdateUserSchema, ErrorKinsper> {
-        let mut query_set_vec = Vec::new();
-        if let Some(id) = id.as_ref() {
-            query_set_vec.push(format!("id = '{}'", id));
+    pub fn new() -> Self {
+        UpdateUserSchema {
+            id: None,
+            name: None,
+            mail: None,
+            query_set: String::new(),
         }
-
-        if let Some(name) = name.as_ref() {
-            query_set_vec.push(format!("name = '{}'", name));
-        }
-
-        if let Some(mail) = mail.as_ref() {
-            query_set_vec.push(format!("mail = '{}'", mail));
-        }
-
-        if query_set_vec.is_empty() {
-            return Err(ErrorKinsper::new(
-                crate::errors::TypeErrorKinsper::UpdateSchemeError,
-                "No fields to update.".to_string(),
-            ));
-        }
-
-        let query_set = query_set_vec.join(", ");
-
-        Ok(UpdateUserSchema {
-            id,
-            name,
-            mail,
-            query_set,
-        })
     }
 
     pub fn query_set(&self) -> &String {
         &self.query_set
+    }
+
+    pub fn with_id(mut self, id: String) -> Self {
+        self.id = Some(id);
+        self
+    }
+
+    pub fn with_name(mut self, name: String) -> Self {
+        self.name = Some(name);
+        self
+    }
+
+    pub fn with_mail(mut self, mail: String) -> Self {
+        self.mail = Some(mail);
+        self
+    }
+
+    pub fn finalize(self) -> Result<Self, ErrorKinsper> {
+        let query_set = self.prepare_query_set()?;
+        Ok(UpdateUserSchema { query_set, ..self })
+    }
+
+    fn prepare_query_set(&self) -> Result<String, ErrorKinsper> {
+        let updates: Vec<String> = vec![
+            self.id.as_ref().map(|id| format!("id = '{}'", id)),
+            self.name.as_ref().map(|name| format!("name = '{}'", name)),
+            self.mail.as_ref().map(|mail| format!("mail = '{}'", mail)),
+        ]
+        .into_iter()
+        .flatten()
+        .collect();
+
+        if updates.is_empty() {
+            return Err(ErrorKinsper::UpdateSchemeError(
+                "No fields to update.".to_string(),
+            ));
+        }
+
+        Ok(updates.join(", "))
     }
 }

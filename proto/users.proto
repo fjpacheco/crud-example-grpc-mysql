@@ -1,0 +1,61 @@
+syntax = "proto3";
+package user_service;
+
+service UserService {
+    rpc GetUser(GetUserRequest) returns (GetUserResponse);
+    rpc GetAllUsers(GetAllUserRequest) returns (stream GetUserResponse);
+    rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
+    rpc UpdateNameUser(UpdateUserNameRequest) returns (UpdateUserNameResponse);
+    rpc UpdateMailUser(UpdateUserMailRequest) returns (UpdateUserMailResponse);
+    rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse);
+    rpc ResetUserTable(ResetUserTableRequest) returns (ResetUserTableResponse);
+}
+
+message UserId {
+   string id = 1;
+}
+
+message GetUserRequest {
+   UserId id = 1;
+}
+
+message GetUserResponse {
+   UserId id = 1;
+   string name = 2;
+   string mail = 3;
+}
+
+message GetAllUserRequest {
+   uint32 limit = 1;
+}
+
+message CreateUserRequest {
+   UserId id = 1;
+   string name = 2;
+   string mail = 3;
+}
+
+message CreateUserResponse {}
+
+message UpdateUserNameRequest {
+   UserId id = 1;
+   string name = 2;
+}
+
+message UpdateUserNameResponse {}
+
+message UpdateUserMailRequest {
+   UserId id = 1;
+   string mail = 2;
+}
+
+message UpdateUserMailResponse {}
+
+message DeleteUserRequest {
+   UserId id = 1;
+}
+
+message DeleteUserResponse {}
+
+message ResetUserTableRequest {}
+message ResetUserTableResponse {}
