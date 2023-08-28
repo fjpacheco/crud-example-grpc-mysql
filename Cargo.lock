@@ -1160,6 +1160,7 @@ dependencies = [
  "log",
  "prost",
  "rand",
+ "regex",
  "serde",
  "serde_json",
  "sqlx",

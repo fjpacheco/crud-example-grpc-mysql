@@ -7,7 +7,16 @@ use super::{
 };
 
 impl Database {
+    fn debug_thread(&self) {
+        log::debug!(
+            "[CURRENT_THREAD: {:?}] | [THREAD_NAME: {:?}]",
+            std::thread::current().id(),
+            std::thread::current().name().unwrap()
+        );
+    }
     pub async fn drop_table(&self) -> Result<(), ErrorKinsper> {
+        self.debug_thread();
+
         sqlx::query("DROP TABLE IF EXISTS users;")
             .execute(self.pool.clone().as_ref())
             .await?;
@@ -17,6 +26,8 @@ impl Database {
     }
 
     pub async fn create_table(&self) -> Result<(), ErrorKinsper> {
+        self.debug_thread();
+
         sqlx::query(
             r#"
                 CREATE TABLE IF NOT EXISTS users (
@@ -33,11 +44,7 @@ impl Database {
     }
 
     pub async fn add_user(&self, user: &CreateUserScheme) -> Result<u64, ErrorKinsper> {
-        log::debug!(
-            "[CURRENT_THREAD: {:?}] | [THREAD_NAME: {:?}]",
-            std::thread::current().id(),
-            std::thread::current().name().unwrap()
-        );
+        self.debug_thread();
 
         let result = sqlx::query(
             r#"
@@ -50,20 +57,18 @@ impl Database {
         .execute(self.pool.clone().as_ref())
         .await?;
 
-        log::info!(
-            "Rows affected: {}. New user added (ID-{}).",
-            result.rows_affected(),
-            user.id
-        );
-        Ok(result.rows_affected())
+        match result.rows_affected() {
+            0 => Err(ErrorKinsper::new(
+                crate::errors::TypeErrorKinsper::AlreadyExists,
+                "User already exists.".to_string(),
+            )),
+            _ => Ok(result.rows_affected()),
+        }
     }
 
     pub async fn get_users(&self, limit: Option<u32>) -> Result<Vec<UserModel>, ErrorKinsper> {
-        log::debug!(
-            "[CURRENT_THREAD: {:?}] | [THREAD_NAME: {:?}]",
-            std::thread::current().id(),
-            std::thread::current().name().unwrap()
-        );
+        self.debug_thread();
+
         let result = sqlx::query_as::<_, UserModel>(
             r#"
                 SELECT * 
@@ -74,16 +79,19 @@ impl Database {
         .fetch_all(self.pool.clone().as_ref())
         .await?;
 
-        log::info!("Rows selected: {}.", result.len());
-        Ok(result)
+        if result.is_empty() {
+            Err(ErrorKinsper::new(
+                crate::errors::TypeErrorKinsper::NotFound,
+                "No users found.".to_string(),
+            ))
+        } else {
+            Ok(result)
+        }
     }
 
     pub async fn get_user_by_id(&self, id: &str) -> Result<UserModel, ErrorKinsper> {
-        log::debug!(
-            "[CURRENT_THREAD: {:?}] | [THREAD_NAME: {:?}]",
-            std::thread::current().id(),
-            std::thread::current().name().unwrap()
-        );
+        self.debug_thread();
+
         let result = sqlx::query_as::<_, UserModel>(
             r#"
                 SELECT * 
@@ -103,11 +111,8 @@ impl Database {
         id: &str,
         user: &UpdateUserSchema,
     ) -> Result<u64, ErrorKinsper> {
-        log::debug!(
-            "[CURRENT_THREAD: {:?}] | [THREAD_NAME: {:?}]",
-            std::thread::current().id(),
-            std::thread::current().name().unwrap()
-        );
+        self.debug_thread();
+
         let result = sqlx::query(
             format!(
                 r#"
@@ -122,20 +127,18 @@ impl Database {
         .execute(self.pool.clone().as_ref())
         .await?;
 
-        log::info!(
-            "Rows affected: {}. User updated (ID-{}).",
-            result.rows_affected(),
-            id
-        );
-        Ok(result.rows_affected())
+        match result.rows_affected() {
+            0 => Err(ErrorKinsper::new(
+                crate::errors::TypeErrorKinsper::NotFound,
+                "User not found.".to_string(),
+            )),
+            _ => Ok(result.rows_affected()),
+        }
     }
 
     pub async fn delete_user(&self, id: &str) -> Result<u64, ErrorKinsper> {
-        log::debug!(
-            "[CURRENT_THREAD: {:?}] | [THREAD_NAME: {:?}]",
-            std::thread::current().id(),
-            std::thread::current().name().unwrap()
-        );
+        self.debug_thread();
+
         let result = sqlx::query(
             r#"
             DELETE FROM users 
@@ -145,12 +148,13 @@ impl Database {
         .execute(self.pool.clone().as_ref())
         .await?;
 
-        log::info!(
-            "Rows affected: {}. User deleted (ID-{}).",
-            result.rows_affected(),
-            id
-        );
-        Ok(result.rows_affected())
+        match result.rows_affected() {
+            0 => Err(ErrorKinsper::new(
+                crate::errors::TypeErrorKinsper::NotFound,
+                "User not found.".to_string(),
+            )),
+            _ => Ok(result.rows_affected()),
+        }
     }
 }
 
@@ -176,7 +180,7 @@ mod handler_tests {
     // Se valida el comportamiento viendo el print "cargo test -- --show-output"
     // TODO: evitar usar println! y usar log::info! o log::debug!
 
-    const NUMBER_TESTS: usize = 5;
+    const NUMBER_TESTS: usize = 7;
     static TEST_COUNTER: AtomicUsize = AtomicUsize::new(NUMBER_TESTS);
     async fn setup() -> sqlx::Result<Arc<Database>> {
         dotenv().ok();
@@ -195,7 +199,8 @@ mod handler_tests {
     }
 
     #[tokio::test]
-    async fn when_get_user_by_id_given_inexistent_id_then_returns_error() -> sqlx::Result<()> {
+    async fn test01_when_get_user_by_id_given_inexistent_id_then_returns_error() -> sqlx::Result<()>
+    {
         let db_context = setup().await?;
 
         let user_inserted = db_context.get_user_by_id("12").await;
@@ -206,7 +211,7 @@ mod handler_tests {
     }
 
     #[tokio::test]
-    async fn when_add_user_given_valid_user_then_can_get_that_user() -> sqlx::Result<()> {
+    async fn test02_when_add_user_given_valid_user_then_can_get_that_user() -> sqlx::Result<()> {
         let db_context = setup().await?;
         let new_user = crate::data::scheme::CreateUserScheme {
             id: "15".to_string(),
@@ -223,7 +228,8 @@ mod handler_tests {
     }
 
     #[tokio::test]
-    async fn when_get_users_given_limit_then_returns_limited_number_of_users() -> sqlx::Result<()> {
+    async fn test03_when_get_users_given_limit_then_returns_limited_number_of_users(
+    ) -> sqlx::Result<()> {
         let db_context = setup().await?;
 
         let new_users = vec![
@@ -256,7 +262,7 @@ mod handler_tests {
     }
 
     #[tokio::test]
-    async fn when_update_user_given_valid_id_and_schema_then_updated_successfully(
+    async fn test04_when_update_user_given_valid_id_and_schema_then_updated_successfully(
     ) -> sqlx::Result<()> {
         let db_context = setup().await?;
 
@@ -285,7 +291,36 @@ mod handler_tests {
     }
 
     #[tokio::test]
-    async fn when_delete_user_given_valid_id_then_deleted_successfully() -> sqlx::Result<()> {
+    async fn test05_when_update_user_ineexistent_id_then_returns_error() -> sqlx::Result<()> {
+        let db_context = setup().await?;
+
+        let updated_user = UpdateUserSchema::new()
+            .with_name("Jorge Updated".to_string())
+            .with_mail("jorgito@gmail.com".to_string())
+            .finalize()
+            .unwrap();
+
+        let result = db_context.update_user("9491", &updated_user).await;
+
+        assert!(result.is_err());
+        teardown(db_context).await.unwrap();
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test06_when_delete_user_given_inexistent_id_then_returns_error() -> sqlx::Result<()> {
+        let db_context = setup().await?;
+
+        let result = db_context.delete_user("9492").await;
+
+        assert!(result.is_err());
+        teardown(db_context).await.unwrap();
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test07_when_delete_user_given_valid_id_then_deleted_successfully() -> sqlx::Result<()>
+    {
         let db_context = setup().await?;
 
         let new_user = CreateUserScheme {

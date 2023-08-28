@@ -156,19 +156,31 @@ async fn get_all(opts: GetAllOptions) -> Result<(), Box<dyn std::error::Error>> 
 
     let request = tonic::Request::new(GetAllUserRequest { limit: opts.limit });
 
-    let mut response = client.get_all_users(request).await?.into_inner();
-    while let Ok(user) = response.message().await {
-        if let Some(user) = user {
-            println!(
-                "User obtained - ID: {} | NAME: {} | MAIL: {}",
-                user.id.unwrap().id,
-                user.name,
-                user.mail
-            );
-        } else {
-            break;
+    match client.get_all_users(request).await {
+        Ok(response) => {
+            let mut stream = response.into_inner();
+            while let Ok(user) = stream.message().await {
+                if let Some(user) = user {
+                    println!(
+                        "User obtained - ID: {} | NAME: {} | MAIL: {}",
+                        user.id.unwrap().id,
+                        user.name,
+                        user.mail
+                    );
+                } else {
+                    break;
+                }
+            }
+        }
+        Err(e) => {
+            if e.code() == tonic::Code::NotFound {
+                println!("No users found in the database");
+            } else {
+                eprint!("ERROR: {:?}", e);
+            }
         }
     }
+
     Ok(())
 }
 

@@ -1,9 +1,9 @@
 use dotenv::dotenv;
 use kinsper_rust_test::data::context::Database;
 use kinsper_rust_test::data::scheme::{CreateUserScheme, UpdateUserSchema};
-use kinsper_rust_test::errors::ErrorKinsper;
+use kinsper_rust_test::errors::{ErrorKinsper, TypeErrorKinsper};
 use kinsper_rust_test::{
-    initialize_logging, LIMIT_STREAM_QUEUE, SERVER_LOCALHOST, SERVER_LOCALPORT,
+    initialize_logging, validate_mail, LIMIT_STREAM_QUEUE, SERVER_LOCALHOST, SERVER_LOCALPORT,
 };
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
@@ -34,23 +34,24 @@ impl MyUserService {
     where
         F: FnOnce() -> Result<UpdateUserSchema, ErrorKinsper>,
     {
-        let updated_schema =
-            schema_creator().map_err(|_| Status::internal("Couldn't create update schema"))?;
+        let updated_schema = schema_creator()?;
 
         // tokio::time::sleep(std::time::Duration::from_secs(5)).await; // For play with concurrency with quantitiy workers on tokio runtime and buffer_unordered
         // std::thread::sleep(std::time::Duration::from_secs(5)); // For visualize ops blocking in runtime thread
 
-        self.db_context
+        Ok(self
+            .db_context
             .update_user(id, &updated_schema)
             .await
-            .map(|_| Response::new(response_creator()))
-            .map_err(|_| Status::internal("Couldn't update user"))
+            .map(|_| Response::new(response_creator()))?)
     }
 
     fn id_to_str<'a>(&self, id: &'a Option<UserId>) -> Result<&'a str, Status> {
         match id {
             Some(id) => Ok(&id.id),
-            None => Err(Status::internal("Invalid request: Missing ID")),
+            None => Err(Status::invalid_argument(
+                TypeErrorKinsper::InvalidId.to_string(),
+            )),
         }
     }
 }
@@ -64,16 +65,13 @@ impl UserService for MyUserService {
         let id = self.id_to_str(&request.get_ref().id)?;
         log::info!("[GET_USER] Got a request from {:?}", request.remote_addr());
 
-        let user = self.db_context.get_user_by_id(id).await;
+        let user = self.db_context.get_user_by_id(id).await?;
 
-        match user {
-            Ok(user) => Ok(Response::new(GetUserResponse {
-                id: Some(UserId { id: user.id }),
-                name: user.name,
-                mail: user.mail,
-            })),
-            Err(_) => Err(Status::not_found("User not found")),
-        }
+        Ok(Response::new(GetUserResponse {
+            id: Some(UserId { id: user.id }),
+            name: user.name,
+            mail: user.mail,
+        }))
     }
 
     type GetAllUsersStream = ReceiverStream<Result<GetUserResponse, Status>>;
@@ -86,56 +84,53 @@ impl UserService for MyUserService {
 
         let (tx, rx) = mpsc::channel(LIMIT_STREAM_QUEUE);
 
-        match self
+        let users = self
             .db_context
             .get_users(Some(request.get_ref().limit))
-            .await
-        {
-            Ok(users) => {
-                tokio::spawn(async move {
-                    for user in users {
-                        if tx
-                            .send(Ok(GetUserResponse {
-                                id: Some(UserId { id: user.id }),
-                                name: user.name,
-                                mail: user.mail,
-                            }))
-                            .await
-                            .is_err()
-                        {
-                            log::error!("Channel send error");
-                            break;
-                        }
-                    }
-                });
-
-                Ok(Response::new(ReceiverStream::new(rx)))
+            .await?;
+        tokio::spawn(async move {
+            for user in users {
+                if tx
+                    .send(Ok(GetUserResponse {
+                        id: Some(UserId { id: user.id }),
+                        name: user.name,
+                        mail: user.mail,
+                    }))
+                    .await
+                    .is_err()
+                {
+                    log::error!("Channel send error");
+                    break;
+                }
             }
-            Err(_) => Err(Status::internal("Couldn't get users")),
-        }
+        });
+
+        Ok(Response::new(ReceiverStream::new(rx)))
     }
 
     async fn create_user(
         &self,
         request: Request<CreateUserRequest>,
     ) -> Result<Response<CreateUserResponse>, Status> {
+        let req = request.get_ref();
+        validate_mail(&req.mail)?;
+
         log::info!(
             "[CREATE_USER] Got a request from {:?}",
             request.remote_addr()
         );
 
-        let req = request.get_ref();
         let user = CreateUserScheme {
             id: self.id_to_str(&req.id)?.to_string(),
             name: req.name.clone(),
             mail: req.mail.clone(),
         };
 
-        self.db_context
+        Ok(self
+            .db_context
             .add_user(&user)
             .await
-            .map(|_| Response::new(CreateUserResponse {}))
-            .map_err(|_| Status::internal("Couldn't create user"))
+            .map(|_| Response::new(CreateUserResponse {}))?)
     }
 
     async fn update_name_user(
@@ -165,6 +160,7 @@ impl UserService for MyUserService {
     ) -> Result<Response<UpdateUserMailResponse>, Status> {
         let req: &UpdateUserMailRequest = request.get_ref();
         let id = self.id_to_str(&req.id)?;
+        validate_mail(&req.mail)?;
 
         log::info!(
             "[UPDATE_USER_MAIL] Got a request from {:?}",
@@ -191,11 +187,11 @@ impl UserService for MyUserService {
             request.remote_addr()
         );
 
-        self.db_context
+        Ok(self
+            .db_context
             .delete_user(id)
             .await
-            .map(|_| Response::new(DeleteUserResponse {}))
-            .map_err(|_| Status::internal("Couldn't delete user"))
+            .map(|_| Response::new(DeleteUserResponse {}))?)
     }
 }
 
@@ -212,7 +208,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let database_url = std::env::var("DATABASE_URL")
         .map_err(|_| std::io::Error::new(std::io::ErrorKind::Other, "DATABASE_URL not found"))?;
-    let db_context = Database::connect(&database_url).await.unwrap();
+    let db_context = Database::connect(&database_url).await.map_err(|_| {
+        std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "Couldn't connect to database server",
+        )
+    })?;
 
     let user_service = MyUserService { db_context };
 
