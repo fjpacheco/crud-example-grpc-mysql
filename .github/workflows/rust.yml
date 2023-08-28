@@ -19,6 +19,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
+    - name: Install Protobuf Compiler
+      run: sudo apt-get -y install protobuf-compiler
+    - uses: actions/checkout@v3
     - name: Check formatting
       run: cargo fmt -- --check
     - name: Check linting
@@ -44,6 +47,9 @@ jobs:
           --health-retries=3
   
     steps:
+    - uses: actions/checkout@v3
+    - name: Install Protobuf Compiler
+      run: sudo apt-get -y install protobuf-compiler
     - uses: actions/checkout@v3
     - name: Build
       run: cargo build --verbose
