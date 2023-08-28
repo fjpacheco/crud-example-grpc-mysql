@@ -44,3 +44,5 @@ tonic-build = "0.8"
 uuid = { version = "1.2.2", features = ["v4", "fast-rng"] }
 futures-util = "0.3.25"
 anyhow = "1"
+tower = { version = "0.4" }
+tempfile = "3.3.0"

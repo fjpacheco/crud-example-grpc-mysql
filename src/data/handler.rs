@@ -155,7 +155,7 @@ impl Database {
 }
 
 #[cfg(test)]
-mod handler_tests {
+pub mod handler_tests {
     use std::sync::{
         atomic::{AtomicUsize, Ordering},
         Arc,
@@ -172,10 +172,9 @@ mod handler_tests {
     // Como rust ejecuta los tests en paralelo (y yo quiero aprovechar eso) entonces
     // necesito que solo 1 test se encargue de limpiar la tabla
     // Se valida el comportamiento viendo el print "cargo test -- --show-output"
-    // TODO: evitar usar println! y usar log::info! o log::debug!
-
-    const NUMBER_TESTS: usize = 7;
-    static TEST_COUNTER: AtomicUsize = AtomicUsize::new(NUMBER_TESTS);
+    // Esto se arreglaria con Mocks ...
+    pub const NUMBER_TESTS: usize = 14; // contabilizar TODOS los tests del sistema
+    pub static TEST_COUNTER: AtomicUsize = AtomicUsize::new(NUMBER_TESTS);
     async fn setup() -> sqlx::Result<Arc<Database>> {
         dotenv().ok();
         let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
