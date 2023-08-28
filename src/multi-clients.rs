@@ -1,6 +1,8 @@
 use dotenv::dotenv;
 use futures::stream::StreamExt;
-use kinsper_rust_test::{initialize_logging, MAX_USERS_TEST, SERVER_LOCALHOST, SERVER_LOCALPORT};
+use kinsper_rust_test::{
+    errors::ErrorKinsper, initialize_logging, MAX_USERS_TEST, SERVER_LOCALHOST, SERVER_LOCALPORT,
+};
 use rand::Rng;
 use user_service::{user_service_client::UserServiceClient, GetAllUserRequest};
 
@@ -12,9 +14,11 @@ pub mod user_service {
     tonic::include_proto!("user_service");
 }
 
+const MAX_THREADS_SCHEDULING: usize = 5;
+
 // #[tokio::main] // by default, it uses 4 threads
 #[tokio::main(flavor = "multi_thread", worker_threads = 10)]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<(), ErrorKinsper> {
     dotenv().ok();
     initialize_logging();
     let addr = format!("http://{}:{}", SERVER_LOCALHOST, SERVER_LOCALPORT);
@@ -71,15 +75,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         })
     }));
 
-    fetches.buffer_unordered(5).collect::<Vec<_>>().await;
+    fetches
+        .buffer_unordered(MAX_THREADS_SCHEDULING)
+        .collect::<Vec<_>>()
+        .await;
 
-    let mut client = UserServiceClient::connect(addr).await?;
+    let mut client = UserServiceClient::connect(addr)
+        .await
+        .map_err(|_| ErrorKinsper::InternalServer("Error connecting to server".to_string()))?;
     let mut stream = client
         .get_all_users(GetAllUserRequest { limit: 100 })
-        .await?
+        .await
+        .map_err(|_| ErrorKinsper::InternalServer("Error to get all users".to_string()))?
         .into_inner();
 
-    while let Some(user) = stream.message().await? {
+    while let Some(user) = stream
+        .message()
+        .await
+        .map_err(|_| ErrorKinsper::InternalServer("Error to get all users".to_string()))?
+    {
         println!("User = {:?}", user);
     }
 

@@ -1,5 +1,7 @@
 #[derive(Debug, PartialEq)]
 pub enum ErrorKinsper {
+    InternalServer(String),
+    InvalidUri(String),
     ConnectionError(String),
     MySqlError(String),
     UpdateSchemeError(String),
@@ -28,6 +30,8 @@ use tonic::Status;
 impl From<ErrorKinsper> for Status {
     fn from(err: ErrorKinsper) -> Self {
         match err {
+            ErrorKinsper::InternalServer(msg) => Status::internal(msg),
+            ErrorKinsper::InvalidUri(msg) => Status::internal(msg),
             ErrorKinsper::ConnectionError(msg) => Status::internal(msg),
             ErrorKinsper::MySqlError(msg) => Status::internal(msg),
             ErrorKinsper::UpdateSchemeError(msg) => Status::internal(msg),

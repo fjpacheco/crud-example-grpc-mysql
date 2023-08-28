@@ -1,5 +1,6 @@
 use clap::Parser;
-use kinsper_rust_test::{SERVER_LOCALHOST, SERVER_LOCALPORT};
+use kinsper_rust_test::{errors::ErrorKinsper, SERVER_LOCALHOST, SERVER_LOCALPORT};
+use tonic::transport::Channel;
 use user_service::{
     user_service_client::UserServiceClient, CreateUserRequest, DeleteUserRequest,
     GetAllUserRequest, GetUserRequest, ResetUserTableRequest, UpdateUserMailRequest,
@@ -30,10 +31,7 @@ enum Command {
     ResetTable,
 }
 
-async fn reset_table() -> Result<(), Box<dyn std::error::Error>> {
-    let addr = format!("http://{}:{}", SERVER_LOCALHOST, SERVER_LOCALPORT);
-    let mut client = UserServiceClient::connect(addr).await?;
-
+async fn reset_table(mut client: UserServiceClient<Channel>) -> Result<(), ErrorKinsper> {
     let request = tonic::Request::new(ResetUserTableRequest {});
 
     let response = client.reset_user_table(request).await;
@@ -55,10 +53,10 @@ struct UpdateNameOptions {
     name: String,
 }
 
-async fn update_name(opts: UpdateNameOptions) -> Result<(), Box<dyn std::error::Error>> {
-    let addr = format!("http://{}:{}", SERVER_LOCALHOST, SERVER_LOCALPORT);
-    let mut client = UserServiceClient::connect(addr).await?;
-
+async fn update_name(
+    opts: UpdateNameOptions,
+    mut client: UserServiceClient<Channel>,
+) -> Result<(), ErrorKinsper> {
     let request = tonic::Request::new(UpdateUserNameRequest {
         id: Some(user_service::UserId { id: opts.id }),
         name: opts.name,
@@ -84,10 +82,10 @@ struct UpdateMailOptions {
     mail: String,
 }
 
-async fn update_mail(opts: UpdateMailOptions) -> Result<(), Box<dyn std::error::Error>> {
-    let addr = format!("http://{}:{}", SERVER_LOCALHOST, SERVER_LOCALPORT);
-    let mut client = UserServiceClient::connect(addr).await?;
-
+async fn update_mail(
+    opts: UpdateMailOptions,
+    mut client: UserServiceClient<Channel>,
+) -> Result<(), ErrorKinsper> {
     let request = tonic::Request::new(UpdateUserMailRequest {
         id: Some(user_service::UserId { id: opts.id }),
         mail: opts.mail,
@@ -111,10 +109,10 @@ struct DeleteOptions {
     id: String,
 }
 
-async fn delete(opts: DeleteOptions) -> Result<(), Box<dyn std::error::Error>> {
-    let addr = format!("http://{}:{}", SERVER_LOCALHOST, SERVER_LOCALPORT);
-    let mut client = UserServiceClient::connect(addr).await?;
-
+async fn delete(
+    opts: DeleteOptions,
+    mut client: UserServiceClient<Channel>,
+) -> Result<(), ErrorKinsper> {
     let request = tonic::Request::new(DeleteUserRequest {
         id: Some(user_service::UserId { id: opts.id }),
     });
@@ -141,10 +139,10 @@ struct CreateOptions {
     mail: String,
 }
 
-async fn create(opts: CreateOptions) -> Result<(), Box<dyn std::error::Error>> {
-    let addr = format!("http://{}:{}", SERVER_LOCALHOST, SERVER_LOCALPORT);
-    let mut client = UserServiceClient::connect(addr).await?;
-
+async fn create(
+    opts: CreateOptions,
+    mut client: UserServiceClient<Channel>,
+) -> Result<(), ErrorKinsper> {
     let request = tonic::Request::new(CreateUserRequest {
         id: Some(user_service::UserId { id: opts.id }),
         name: opts.name,
@@ -169,10 +167,10 @@ struct GetAllOptions {
     limit: u32,
 }
 
-async fn get_all(opts: GetAllOptions) -> Result<(), Box<dyn std::error::Error>> {
-    let addr = format!("http://{}:{}", SERVER_LOCALHOST, SERVER_LOCALPORT);
-    let mut client = UserServiceClient::connect(addr).await?;
-
+async fn get_all(
+    opts: GetAllOptions,
+    mut client: UserServiceClient<Channel>,
+) -> Result<(), ErrorKinsper> {
     let request = tonic::Request::new(GetAllUserRequest { limit: opts.limit });
 
     match client.get_all_users(request).await {
@@ -209,10 +207,7 @@ struct GetOptions {
     id: String,
 }
 
-async fn get(opts: GetOptions) -> Result<(), Box<dyn std::error::Error>> {
-    let addr = format!("http://{}:{}", SERVER_LOCALHOST, SERVER_LOCALPORT);
-    let mut client = UserServiceClient::connect(addr).await?;
-
+async fn get(opts: GetOptions, mut client: UserServiceClient<Channel>) -> Result<(), ErrorKinsper> {
     let request = tonic::Request::new(GetUserRequest {
         id: Some(user_service::UserId { id: opts.id }),
     });
@@ -236,18 +231,23 @@ async fn get(opts: GetOptions) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<(), ErrorKinsper> {
     let opts = Options::parse();
+
+    let addr = format!("http://{}:{}", SERVER_LOCALHOST, SERVER_LOCALPORT);
+    let client = UserServiceClient::connect(addr)
+        .await
+        .map_err(|_| ErrorKinsper::InternalServer("Error connecting to server".to_string()))?;
 
     use Command::*;
     match opts.command {
-        Get(opts) => get(opts).await?,
-        GetAll(opts) => get_all(opts).await?,
-        Create(opts) => create(opts).await?,
-        Delete(opts) => delete(opts).await?,
-        UpdateName(opts) => update_name(opts).await?,
-        UpdateMail(opts) => update_mail(opts).await?,
-        ResetTable => reset_table().await?,
+        Get(opts) => get(opts, client).await?,
+        GetAll(opts) => get_all(opts, client).await?,
+        Create(opts) => create(opts, client).await?,
+        Delete(opts) => delete(opts, client).await?,
+        UpdateName(opts) => update_name(opts, client).await?,
+        UpdateMail(opts) => update_mail(opts, client).await?,
+        ResetTable => reset_table(client).await?,
     };
 
     Ok(())

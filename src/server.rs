@@ -211,40 +211,27 @@ impl UserService for MyUserService {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<(), ErrorKinsper> {
     dotenv().ok();
     initialize_logging();
 
+    let database_url = std::env::var("DATABASE_URL")
+        .map_err(|_| ErrorKinsper::InvalidUri("Invalid database url".to_string()))?;
+    let db_context = Database::connect(&database_url).await?;
+    db_context.create_table().await?;
+
     let addr = format!("{}:{}", SERVER_LOCALHOST, SERVER_LOCALPORT)
         .parse()
-        .map_err(|_| {
-            std::io::Error::new(std::io::ErrorKind::Other, "Couldn't parse server address")
-        })?;
-
-    let database_url = std::env::var("DATABASE_URL")
-        .map_err(|_| std::io::Error::new(std::io::ErrorKind::Other, "DATABASE_URL not found"))?;
-    let db_context = Database::connect(&database_url).await.map_err(|_| {
-        std::io::Error::new(
-            std::io::ErrorKind::Other,
-            "Couldn't connect to database server",
-        )
-    })?;
-
-    db_context.create_table().await.map_err(|_| {
-        std::io::Error::new(
-            std::io::ErrorKind::Other,
-            "Couldn't create table in database",
-        )
-    })?;
-
+        .map_err(|_| ErrorKinsper::InvalidUri("Invalid server url".to_string()))?;
     let user_service = MyUserService { db_context };
-
     log::info!("Listening on {}", addr);
 
     Server::builder()
         .add_service(UserServiceServer::new(user_service))
         .serve(addr)
-        .await?;
-
+        .await
+        .map_err(|err| {
+            ErrorKinsper::InternalServer(format!("Server error initializing: {}", err))
+        })?;
     Ok(())
 }
