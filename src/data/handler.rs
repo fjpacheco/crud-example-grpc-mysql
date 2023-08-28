@@ -154,8 +154,6 @@ impl Database {
     }
 }
 
-// tests
-
 #[cfg(test)]
 mod handler_tests {
     use std::sync::{

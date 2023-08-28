@@ -1,7 +1,8 @@
 use dotenv::dotenv;
 use futures::stream::StreamExt;
 use kinsper_rust_test::{
-    errors::ErrorKinsper, initialize_logging, MAX_USERS_TEST, SERVER_LOCALHOST, SERVER_LOCALPORT,
+    errors::ErrorKinsper, initialize_logging, MAX_T_SCHEDULING_USERS_TEST, MAX_USERS_TEST,
+    SERVER_LOCALHOST, SERVER_LOCALPORT,
 };
 use rand::Rng;
 use user_service::{user_service_client::UserServiceClient, GetAllUserRequest};
@@ -13,8 +14,6 @@ pub mod user_service {
     // the name of the package declared in our .proto file, not a filename, e.g "routeguide.rs".
     tonic::include_proto!("user_service");
 }
-
-const MAX_THREADS_SCHEDULING: usize = 5;
 
 // #[tokio::main] // by default, it uses 4 threads
 #[tokio::main(flavor = "multi_thread", worker_threads = 10)]
@@ -40,7 +39,7 @@ async fn main() -> Result<(), ErrorKinsper> {
                     id: user_rng_id.to_string(),
                 }),
                 name: format!("John Doe A {}", user_rng_id),
-                mail: String::from("Jhon@mail.com"),
+                mail: String::from("jhon@mail.com"),
             });
 
             let request_create_user_2 = tonic::Request::new(user_service::CreateUserRequest {
@@ -48,7 +47,7 @@ async fn main() -> Result<(), ErrorKinsper> {
                     id: user_rng_id.to_string(),
                 }),
                 name: format!("John Doe B {}", user_rng_id),
-                mail: String::from("Jhon2@mail.com"),
+                mail: String::from("jhon2@mail.com"),
             });
 
             let request_update_name_user =
@@ -76,23 +75,31 @@ async fn main() -> Result<(), ErrorKinsper> {
     }));
 
     fetches
-        .buffer_unordered(MAX_THREADS_SCHEDULING)
+        .buffer_unordered(MAX_T_SCHEDULING_USERS_TEST)
         .collect::<Vec<_>>()
         .await;
 
     let mut client = UserServiceClient::connect(addr)
         .await
         .map_err(|_| ErrorKinsper::InternalServer("Error connecting to server".to_string()))?;
+
+    print!("10 users from the server: ");
     let mut stream = client
-        .get_all_users(GetAllUserRequest { limit: 100 })
+        .get_all_users(GetAllUserRequest { limit: 10 })
         .await
-        .map_err(|_| ErrorKinsper::InternalServer("Error to get all users".to_string()))?
+        .map_err(|e| {
+            if e.code() == tonic::Code::NotFound {
+                ErrorKinsper::NotFound("User not found".to_string())
+            } else {
+                ErrorKinsper::InternalServer(e.to_string())
+            }
+        })?
         .into_inner();
 
     while let Some(user) = stream
         .message()
         .await
-        .map_err(|_| ErrorKinsper::InternalServer("Error to get all users".to_string()))?
+        .map_err(|e| ErrorKinsper::InternalServer(e.to_string()))?
     {
         println!("User = {:?}", user);
     }
