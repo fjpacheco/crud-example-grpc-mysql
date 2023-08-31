@@ -19,6 +19,10 @@ path = "src/client.rs"
 name = "multi-clients"
 path = "src/multi-clients.rs"
 
+[[bin]]
+name = "example-async-runtime"
+path = "src/example-async-runtime.rs"
+
 [dependencies]
 log = "0.4"
 env_logger = "0.10.0"
@@ -46,3 +50,4 @@ futures-util = "0.3.25"
 anyhow = "1"
 tower = { version = "0.4" }
 tempfile = "3.3.0"
+mockall = "0.11.4"

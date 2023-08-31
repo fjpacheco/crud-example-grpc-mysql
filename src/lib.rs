@@ -13,9 +13,11 @@ pub const SERVER_LOCALHOST: &str = "127.0.0.1";
 pub const QUERY_LIMIT_CLIENT: &str = "1024";
 pub const LIMIT_STREAM_QUEUE: usize = 1024;
 
-pub const MAX_T_SCHEDULING_USERS_TEST: usize = 10;
-pub const MAX_USERS_TEST: usize = 1024;
-
+pub const MAX_T_SCHEDULING_STREAM_USERS_TEST: usize = 10;
+pub const MAX_T_RUNTIME_CLIENTS: usize = 10; // tokio by default has core cpus available
+pub const MAX_T_RUNTIME_SERVER: usize = 10; // tokio by default has core cpus available
+pub const MAX_USERS_TEST: usize = 5000;
+pub const MAX_CONNECTIONS_DB_POOL: u32 = 5; //default 5
 pub fn initialize_logging() {
     env_logger::builder()
         .filter(
